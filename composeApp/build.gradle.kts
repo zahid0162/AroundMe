@@ -6,6 +6,8 @@ plugins {
     alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.composeCompiler)
     alias(libs.plugins.kotlinSerialization)
+    alias(libs.plugins.ksp)
+    alias(libs.plugins.androidx.room3)
 }
 
 kotlin {
@@ -47,6 +49,16 @@ kotlin {
             implementation(libs.koin.core)
             implementation(libs.koin.compose)
             implementation(libs.koin.compose.viewmodel)
+
+            implementation(libs.ktor.client.core)
+            implementation(libs.ktor.client.content.negotiation)
+            implementation(libs.ktor.serialization.kotlinx.json)
+
+            implementation(libs.coil.compose)
+            implementation(libs.coil.network.ktor3)
+
+            implementation(libs.room3.runtime)
+            implementation(libs.sqlite.bundled)
         }
 
         androidMain.dependencies {
@@ -54,6 +66,11 @@ kotlin {
             implementation(libs.androidx.activity.compose)
             implementation(libs.maps.compose)
             implementation(libs.play.services.location)
+            implementation(libs.ktor.client.okhttp)
+        }
+
+        iosMain.dependencies {
+            implementation(libs.ktor.client.darwin)
         }
 
         commonTest.dependencies {
@@ -76,4 +93,15 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
+}
+
+room3 {
+    schemaDirectory("$projectDir/schemas")
+}
+
+dependencies {
+    add("kspAndroid", libs.room3.compiler)
+    add("kspIosX64", libs.room3.compiler)
+    add("kspIosArm64", libs.room3.compiler)
+    add("kspIosSimulatorArm64", libs.room3.compiler)
 }

@@ -4,7 +4,8 @@ data class SavedCollection(
     val id: String,
     val name: String,
     val nameAr: String,
-    val placeIds: List<String>
+    val placeIds: List<String>,
+    val isDefault: Boolean = false
 ) {
     fun localizedName(isArabic: Boolean): String = if (isArabic) nameAr else name
 }
@@ -43,5 +44,6 @@ enum class DistanceUnit {
 data class UserPreferences(
     val themePreference: ThemePreference = ThemePreference.SYSTEM,
     val language: AppLanguage = AppLanguage.ENGLISH,
-    val distanceUnit: DistanceUnit = DistanceUnit.METRIC
+    val distanceUnit: DistanceUnit = DistanceUnit.METRIC,
+    val defaultRadiusMeters: Double = 5000.0
 )

@@ -155,9 +155,9 @@ object SamplePlacesDataSource {
     )
 
     val defaultCollections: List<SavedCollection> = listOf(
-        SavedCollection("want_to_visit", "Want to Visit", "أماكن أود زيارتها", listOf("sample_museum_1")),
-        SavedCollection("favorite_restaurants", "Favorite Restaurants", "مطاعمي المفضلة", listOf("sample_rest_1", "sample_cafe_1")),
-        SavedCollection("weekend_plans", "Weekend Plans", "خطط نهاية الأسبوع", listOf("sample_park_1")),
-        SavedCollection("travel", "Travel", "السفر", emptyList())
+        SavedCollection("want_to_visit", "Want to Visit", "أرغب في زيارتها", listOf("sample_museum_1"), isDefault = true),
+        SavedCollection("favorite_restaurants", "Favorite Restaurants", "المطاعم المفضلة", listOf("sample_rest_1", "sample_cafe_1"), isDefault = true),
+        SavedCollection("weekend_plans", "Weekend Plans", "خطط نهاية الأسبوع", listOf("sample_park_1"), isDefault = true),
+        SavedCollection("travel", "Travel", "السفر", emptyList(), isDefault = true)
     )
 }

@@ -38,6 +38,14 @@ class ProfileViewModel(
         }
     }
 
+    fun setDefaultRadius(meters: Double) {
+        viewModelScope.launch {
+            userPreferencesRepository.updatePreferences {
+                it.copy(defaultRadiusMeters = meters.coerceIn(1000.0, 50_000.0))
+            }
+        }
+    }
+
     fun refreshLocationStatus() {
         locationRepository.refreshPermissionState()
     }

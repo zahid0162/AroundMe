@@ -18,6 +18,14 @@ val mapsApiKey: String = localProperties.getProperty("MAPS_ANDROID_API_KEY")
     ?: System.getenv("MAPS_ANDROID_API_KEY")
     ?: ""
 
+val placesApiKey: String = localProperties.getProperty("PLACES_API_KEY")
+    ?: System.getenv("PLACES_API_KEY")
+    ?: mapsApiKey
+
+val placesProxyBaseUrl: String = localProperties.getProperty("PLACES_PROXY_BASE_URL")
+    ?: System.getenv("PLACES_PROXY_BASE_URL")
+    ?: ""
+
 android {
     namespace = "com.zahid.aroundme"
     compileSdk = libs.versions.android.compileSdk.get().toInt()
@@ -27,9 +35,11 @@ android {
         minSdk = libs.versions.android.minSdk.get().toInt()
         targetSdk = libs.versions.android.targetSdk.get().toInt()
         versionCode = 1
-        versionName = "0.2.0"
+        versionName = "1.0.0"
 
         manifestPlaceholders["MAPS_ANDROID_API_KEY"] = mapsApiKey
+        manifestPlaceholders["PLACES_API_KEY"] = placesApiKey
+        manifestPlaceholders["PLACES_PROXY_BASE_URL"] = placesProxyBaseUrl
     }
 
     packaging {

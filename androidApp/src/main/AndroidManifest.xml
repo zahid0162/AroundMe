@@ -15,6 +15,12 @@
         <meta-data
             android:name="com.google.android.geo.API_KEY"
             android:value="${MAPS_ANDROID_API_KEY}" />
+        <meta-data
+            android:name="com.zahid.aroundme.PLACES_API_KEY"
+            android:value="${PLACES_API_KEY}" />
+        <meta-data
+            android:name="com.zahid.aroundme.PLACES_PROXY_BASE_URL"
+            android:value="${PLACES_PROXY_BASE_URL}" />
 
         <activity
             android:name=".MainActivity"

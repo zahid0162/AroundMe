@@ -1,3 +1,6 @@
 # Copy to local.properties (git-ignored) and supply restricted Google Maps API keys.
-# Android key restrictions: Package name com.zahid.aroundme + SHA-1 fingerprint + Maps SDK for Android.
+# Android key restrictions: Package name com.zahid.aroundme + SHA-1 fingerprint + Maps SDK for Android & Places API (New).
 MAPS_ANDROID_API_KEY=YOUR_RESTRICTED_ANDROID_MAPS_SDK_KEY
+PLACES_API_KEY=YOUR_RESTRICTED_ANDROID_PLACES_API_KEY
+# Optional production BFF proxy base URL (leave blank to call places.googleapis.com/v1 directly during development)
+PLACES_PROXY_BASE_URL=

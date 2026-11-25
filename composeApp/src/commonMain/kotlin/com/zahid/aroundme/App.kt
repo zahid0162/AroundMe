@@ -118,8 +118,13 @@ fun AroundMeApp() {
                         }
                         composable<AroundMeDestination.Search> {
                             SearchScreen(
-                                onOpenPlaceDetails = { placeId ->
-                                    navController.navigate(AroundMeDestination.PlaceDetails(placeId))
+                                onOpenPlaceDetails = { placeId, sessionToken ->
+                                    navController.navigate(
+                                        AroundMeDestination.PlaceDetails(
+                                            placeId = placeId,
+                                            sessionToken = sessionToken
+                                        )
+                                    )
                                 }
                             )
                         }
@@ -137,6 +142,7 @@ fun AroundMeApp() {
                             val route = entry.toRoute<AroundMeDestination.PlaceDetails>()
                             PlaceDetailsScreen(
                                 placeId = route.placeId,
+                                sessionToken = route.sessionToken,
                                 onBack = { navController.navigateUp() }
                             )
                         }

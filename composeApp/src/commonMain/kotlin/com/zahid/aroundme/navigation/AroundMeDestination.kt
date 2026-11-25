@@ -17,5 +17,8 @@ sealed interface AroundMeDestination {
     data object Profile : AroundMeDestination
 
     @Serializable
-    data class PlaceDetails(val placeId: String) : AroundMeDestination
+    data class PlaceDetails(
+        val placeId: String,
+        val sessionToken: String? = null
+    ) : AroundMeDestination
 }

@@ -13,6 +13,7 @@ import com.zahid.aroundme.domain.model.LocationPermissionStatus
 import com.zahid.aroundme.domain.model.MapCameraRegion
 import com.zahid.aroundme.domain.model.Place
 import com.zahid.aroundme.domain.model.PlaceCategory
+import com.zahid.aroundme.domain.model.PlacesFeedResult
 import com.zahid.aroundme.domain.model.SortOption
 import com.zahid.aroundme.domain.model.ThemePreference
 import com.zahid.aroundme.domain.model.UserPreferences
@@ -25,7 +26,10 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -40,6 +44,11 @@ enum class SheetDetent {
     COLLAPSED,
     HALF_EXPANDED,
     EXPANDED
+}
+
+private sealed interface NearbyFeedState {
+    data object Loading : NearbyFeedState
+    data class Loaded(val result: PlacesFeedResult) : NearbyFeedState
 }
 
 data class ExploreUiState(
@@ -57,6 +66,9 @@ data class ExploreUiState(
     val permissionStatus: LocationPermissionStatus = LocationPermissionStatus.UNKNOWN,
     val showLocationBanner: Boolean = false,
     val isLocating: Boolean = false,
+    val isLoadingPlaces: Boolean = false,
+    val placesErrorMessage: String? = null,
+    val isLiveApi: Boolean = false,
     val showSearchThisArea: Boolean = false,
     val cameraCommand: CameraCommand? = null
 )
@@ -72,13 +84,16 @@ class ExploreViewModel(
     private val activeLocation = MutableStateFlow(availableLocations.first())
     private val queryCenter = MutableStateFlow(availableLocations.first().coordinates)
     private val pendingCameraRegion = MutableStateFlow<MapCameraRegion?>(null)
-    private val filterState = MutableStateFlow(FilterState())
+    private val filterState = MutableStateFlow(
+        FilterState(maxDistanceMeters = userPreferencesRepository.preferences.value.defaultRadiusMeters)
+    )
     private val selectedPlaceId = MutableStateFlow<String?>(null)
     private val viewMode = MutableStateFlow(ExploreViewMode.MAP)
     private val sheetDetent = MutableStateFlow(SheetDetent.HALF_EXPANDED)
     private val showSearchThisArea = MutableStateFlow(false)
     private val locationBannerDismissed = MutableStateFlow(false)
     private val isLocating = MutableStateFlow(false)
+    private val refreshTrigger = MutableStateFlow(0)
     private var nextCommandId = 1L
     private val cameraCommand = MutableStateFlow(
         CameraCommand(
@@ -89,11 +104,25 @@ class ExploreViewModel(
         )
     )
 
+    private val languageCodeFlow = userPreferencesRepository.preferences
+        .map { it.language.code }
+        .distinctUntilChanged()
+
     @OptIn(ExperimentalCoroutinesApi::class)
-    private val placesFlow = combine(queryCenter, filterState) { center, filter ->
-        center to filter
-    }.flatMapLatest { (center, filter) ->
-        placesRepository.getNearbyPlaces(center, filter)
+    private val feedStateFlow = combine(
+        queryCenter,
+        filterState,
+        languageCodeFlow,
+        refreshTrigger
+    ) { center, filter, langCode, _ ->
+        Triple(center, filter, langCode)
+    }.flatMapLatest { (center, filter, langCode) ->
+        flow {
+            emit(NearbyFeedState.Loading)
+            placesRepository.observeNearbyPlaces(center, filter, langCode).collect { result ->
+                emit(NearbyFeedState.Loaded(result))
+            }
+        }
     }
 
     init {
@@ -105,7 +134,7 @@ class ExploreViewModel(
 
     val uiState: StateFlow<ExploreUiState> = combine(
         activeLocation,
-        placesFlow,
+        feedStateFlow,
         filterState,
         selectedPlaceId,
         viewMode,
@@ -119,8 +148,7 @@ class ExploreViewModel(
         cameraCommand
     ) { values ->
         val location = values[0] as LocationContext
-        @Suppress("UNCHECKED_CAST")
-        val places = values[1] as List<Place>
+        val feedState = values[1] as NearbyFeedState
         val filter = values[2] as FilterState
         val selectedId = values[3] as String?
         val mode = values[4] as ExploreViewMode
@@ -134,12 +162,13 @@ class ExploreViewModel(
         val searchArea = values[11] as Boolean
         val camCmd = values[12] as CameraCommand?
 
+        val loadedResult = (feedState as? NearbyFeedState.Loaded)?.result
         val shouldShowBanner = !bannerDismissed && !permStatus.isGranted
 
         ExploreUiState(
             activeLocation = location,
             availableLocations = availableLocations,
-            places = places,
+            places = loadedResult?.places.orEmpty(),
             filter = filter,
             selectedPlaceId = selectedId,
             viewMode = mode,
@@ -151,6 +180,9 @@ class ExploreViewModel(
             permissionStatus = permStatus,
             showLocationBanner = shouldShowBanner,
             isLocating = locating,
+            isLoadingPlaces = feedState is NearbyFeedState.Loading,
+            placesErrorMessage = loadedResult?.errorMessage,
+            isLiveApi = loadedResult?.isLiveApi ?: placesRepository.isLiveApiConfigured,
             showSearchThisArea = searchArea,
             cameraCommand = camCmd
         )
@@ -160,6 +192,7 @@ class ExploreViewModel(
         initialValue = ExploreUiState(
             activeLocation = availableLocations.first(),
             availableLocations = availableLocations,
+            isLiveApi = placesRepository.isLiveApiConfigured,
             cameraCommand = cameraCommand.value
         )
     )
@@ -174,8 +207,28 @@ class ExploreViewModel(
         filterState.update { it.copy(openNowOnly = !it.openNowOnly) }
     }
 
+    fun setMinRating(minRating: Double?) {
+        filterState.update {
+            it.copy(minRating = if (it.minRating == minRating) null else minRating)
+        }
+    }
+
+    fun setMaxDistance(meters: Double) {
+        filterState.update { it.copy(maxDistanceMeters = meters.coerceIn(1000.0, 50_000.0)) }
+    }
+
     fun selectSortOption(sortOption: SortOption) {
         filterState.update { it.copy(sortOption = sortOption) }
+    }
+
+    fun resetFilters() {
+        filterState.value = FilterState(
+            maxDistanceMeters = userPreferencesRepository.preferences.value.defaultRadiusMeters
+        )
+    }
+
+    fun retryNearby() {
+        refreshTrigger.update { it + 1 }
     }
 
     fun onMarkerSelected(placeId: String) {
@@ -284,10 +337,14 @@ class ExploreViewModel(
     }
 
     fun toggleSavePlace(placeId: String) {
+        val coords = uiState.value.places.find { it.id == placeId }?.location
         viewModelScope.launch {
-            savedPlacesRepository.toggleSavePlace(placeId)
+            savedPlacesRepository.toggleSavePlace(placeId = placeId, coordinates = coords)
         }
     }
+
+    suspend fun resolvePhotoUri(photoResourceName: String): String? =
+        placesRepository.resolvePhotoUri(photoResourceName, maxWidthPx = 320, maxHeightPx = 320)
 
     private fun issueCameraCommand(target: GeoPoint, zoom: Float, animate: Boolean) {
         cameraCommand.value = CameraCommand(

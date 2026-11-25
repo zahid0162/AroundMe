@@ -7,7 +7,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -24,15 +24,18 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import coil3.compose.AsyncImage
 import com.zahid.aroundme.core.geo.GeoUtils
 import com.zahid.aroundme.domain.model.DistanceUnit
 import com.zahid.aroundme.domain.model.Place
@@ -84,9 +87,20 @@ fun PlacePreviewCard(
     isArabic: Boolean,
     onClick: () -> Unit,
     onToggleSave: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    userNote: String? = null,
+    onResolvePhotoUri: (suspend (String) -> String?)? = null
 ) {
     val extended = LocalAroundMeColors.current
+    val firstPhotoName = place.photos.firstOrNull()?.resourceName
+    val resolvedPhotoUrl by produceState<String?>(initialValue = null, key1 = firstPhotoName) {
+        value = if (firstPhotoName != null && onResolvePhotoUri != null) {
+            onResolvePhotoUri(firstPhotoName)
+        } else {
+            null
+        }
+    }
+
     Surface(
         modifier = modifier
             .fillMaxWidth()
@@ -104,7 +118,6 @@ fun PlacePreviewCard(
             horizontalArrangement = Arrangement.spacedBy(AroundMeSpacing.sm),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Visual thumbnail surface (Photo loaded via Coil in Phase 4)
             Box(
                 modifier = Modifier
                     .size(76.dp)
@@ -124,6 +137,14 @@ fun PlacePreviewCard(
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.onPrimaryContainer
                 )
+                if (resolvedPhotoUrl != null) {
+                    AsyncImage(
+                        model = resolvedPhotoUrl,
+                        contentDescription = place.name,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
             }
 
             Column(
@@ -209,6 +230,16 @@ fun PlacePreviewCard(
                         )
                     }
                 }
+
+                if (!userNote.isNullOrBlank()) {
+                    Text(
+                        text = userNote,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
             }
 
             IconButton(
@@ -217,7 +248,11 @@ fun PlacePreviewCard(
             ) {
                 Icon(
                     imageVector = if (isSaved) Icons.Rounded.Bookmark else Icons.Rounded.BookmarkBorder,
-                    contentDescription = if (isSaved) "Remove bookmark" else "Save place",
+                    contentDescription = if (isSaved) {
+                        if (isArabic) "إزالة الحفظ" else "Remove bookmark"
+                    } else {
+                        if (isArabic) "حفظ المكان" else "Save place"
+                    },
                     tint = if (isSaved) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }

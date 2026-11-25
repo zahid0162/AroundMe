@@ -11,11 +11,15 @@
     <key>CFBundleName</key>
     <string>AroundMe</string>
     <key>CFBundleShortVersionString</key>
-    <string>0.1.0</string>
+    <string>1.0.0</string>
     <key>CFBundleVersion</key>
     <string>1</string>
     <key>GMSApiKey</key>
     <string>$(MAPS_IOS_API_KEY)</string>
+    <key>PlacesApiKey</key>
+    <string>$(PLACES_API_KEY)</string>
+    <key>PlacesProxyBaseUrl</key>
+    <string>$(PLACES_PROXY_BASE_URL)</string>
     <key>NSLocationWhenInUseUsageDescription</key>
     <string>AroundMe uses your location to show nearby places, calculate distances, and center the map around you.</string>
     <key>UILaunchScreen</key>

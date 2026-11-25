@@ -8,6 +8,7 @@ import com.zahid.aroundme.domain.model.GeoPoint
 import com.zahid.aroundme.domain.model.LocationPermissionStatus
 import com.zahid.aroundme.domain.model.MapCameraRegion
 import com.zahid.aroundme.domain.model.PlaceCategory
+import com.zahid.aroundme.domain.model.SortOption
 import com.zahid.aroundme.domain.repository.LocationRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -25,7 +26,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
-private class FakeLocationRepository(
+private class FakeExploreLocationRepository(
     initialStatus: LocationPermissionStatus = LocationPermissionStatus.DENIED
 ) : LocationRepository {
     private val _permissionStatus = MutableStateFlow(initialStatus)
@@ -71,40 +72,54 @@ class ExploreViewModelTest {
             SamplePlacesRepository(),
             InMemorySavedPlacesRepository(),
             InMemoryUserPreferencesRepository(),
-            FakeLocationRepository()
+            FakeExploreLocationRepository()
         )
 
         viewModel.uiState.test {
-            skipItems(1)
-            val initial = awaitItem()
-            assertTrue(initial.places.size > 1)
+            // Skip initial & intermediate loading emissions until loaded
+            var state = awaitItem()
+            while (state.places.isEmpty() || state.isLoadingPlaces) {
+                state = awaitItem()
+            }
+            assertTrue(state.places.size > 1)
 
             viewModel.selectCategory(PlaceCategory.CAFES)
-            val filtered = awaitItem()
+            var filtered = awaitItem()
+            while (filtered.isLoadingPlaces) {
+                filtered = awaitItem()
+            }
             assertTrue(filtered.places.isNotEmpty())
             assertTrue(filtered.places.all { it.primaryCategory == PlaceCategory.CAFES })
         }
     }
 
     @Test
-    fun togglingViewMode_preservesSelectedCategory() = runTest {
+    fun togglingViewMode_preservesSelectedCategoryAndSort() = runTest {
         val viewModel = ExploreViewModel(
             SamplePlacesRepository(),
             InMemorySavedPlacesRepository(),
             InMemoryUserPreferencesRepository(),
-            FakeLocationRepository()
+            FakeExploreLocationRepository()
         )
 
         viewModel.uiState.test {
-            skipItems(1)
+            var state = awaitItem()
+            while (state.places.isEmpty() || state.isLoadingPlaces) {
+                state = awaitItem()
+            }
+
             viewModel.selectCategory(PlaceCategory.PHARMACIES)
-            val afterCategory = awaitItem()
-            assertEquals(PlaceCategory.PHARMACIES, afterCategory.filter.selectedCategory)
+            viewModel.selectSortOption(SortOption.HIGHEST_RATED)
+            var afterFilters = awaitItem()
+            while (afterFilters.isLoadingPlaces || afterFilters.filter.selectedCategory != PlaceCategory.PHARMACIES) {
+                afterFilters = awaitItem()
+            }
 
             viewModel.setViewMode(ExploreViewMode.LIST)
             val afterToggle = awaitItem()
             assertEquals(ExploreViewMode.LIST, afterToggle.viewMode)
             assertEquals(PlaceCategory.PHARMACIES, afterToggle.filter.selectedCategory)
+            assertEquals(SortOption.HIGHEST_RATED, afterToggle.filter.sortOption)
         }
     }
 
@@ -114,15 +129,16 @@ class ExploreViewModelTest {
             SamplePlacesRepository(),
             InMemorySavedPlacesRepository(),
             InMemoryUserPreferencesRepository(),
-            FakeLocationRepository()
+            FakeExploreLocationRepository()
         )
 
         viewModel.uiState.test {
-            skipItems(1)
-            val initial = awaitItem()
+            var initial = awaitItem()
+            while (initial.isLoadingPlaces || initial.places.isEmpty()) {
+                initial = awaitItem()
+            }
             assertFalse(initial.showSearchThisArea)
 
-            // Tiny jitter should NOT trigger "Search this area"
             viewModel.onCameraIdle(
                 MapCameraRegion(
                     center = GeoPoint(24.6950, 46.6853),
@@ -132,7 +148,6 @@ class ExploreViewModelTest {
             )
             expectNoEvents()
 
-            // Significant pan (> 20% of visible radius / >= 350m) triggers button
             viewModel.onCameraIdle(
                 MapCameraRegion(
                     center = GeoPoint(24.7150, 46.7050),
@@ -144,7 +159,10 @@ class ExploreViewModelTest {
             assertTrue(moved.showSearchThisArea)
 
             viewModel.searchThisArea()
-            val searched = awaitItem()
+            var searched = awaitItem()
+            while (searched.showSearchThisArea) {
+                searched = awaitItem()
+            }
             assertFalse(searched.showSearchThisArea)
         }
     }
@@ -155,11 +173,15 @@ class ExploreViewModelTest {
             SamplePlacesRepository(),
             InMemorySavedPlacesRepository(),
             InMemoryUserPreferencesRepository(),
-            FakeLocationRepository()
+            FakeExploreLocationRepository()
         )
 
         viewModel.uiState.test {
-            skipItems(1)
+            var ready = awaitItem()
+            while (ready.isLoadingPlaces || ready.places.isEmpty()) {
+                ready = awaitItem()
+            }
+
             viewModel.setSheetDetent(SheetDetent.COLLAPSED)
             val collapsed = awaitItem()
             assertEquals(SheetDetent.COLLAPSED, collapsed.sheetDetent)

@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -24,8 +26,10 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Apps
 import androidx.compose.material.icons.rounded.Close
@@ -38,25 +42,35 @@ import androidx.compose.material.icons.rounded.LocalGasStation
 import androidx.compose.material.icons.rounded.LocalPharmacy
 import androidx.compose.material.icons.rounded.LocationOff
 import androidx.compose.material.icons.rounded.Map
+import androidx.compose.material.icons.rounded.MoreHoriz
 import androidx.compose.material.icons.rounded.Mosque
 import androidx.compose.material.icons.rounded.MyLocation
 import androidx.compose.material.icons.rounded.Park
+import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Restaurant
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.ShoppingCart
+import androidx.compose.material.icons.rounded.Sort
+import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material.icons.rounded.Tour
+import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -71,15 +85,20 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.zahid.aroundme.core.designsystem.AroundMeCategoryChip
 import com.zahid.aroundme.core.designsystem.AroundMeSpacing
 import com.zahid.aroundme.core.designsystem.PlacePreviewCard
+import com.zahid.aroundme.core.designsystem.SectionHeader
 import com.zahid.aroundme.core.designsystem.SheetGrabHandle
 import com.zahid.aroundme.core.geo.GeoUtils
 import com.zahid.aroundme.core.platform.AroundMeMapSurface
 import com.zahid.aroundme.core.platform.rememberLocationPermissionRequester
+import com.zahid.aroundme.domain.model.CategoryGroup
+import com.zahid.aroundme.domain.model.DistanceUnit
 import com.zahid.aroundme.domain.model.LocationPermissionStatus
 import com.zahid.aroundme.domain.model.PlaceCategory
+import com.zahid.aroundme.domain.model.SortOption
 import com.zahid.aroundme.domain.model.ThemePreference
 import org.koin.compose.viewmodel.koinViewModel
 
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun ExploreScreen(
     onOpenSearch: () -> Unit,
@@ -88,6 +107,7 @@ fun ExploreScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     var locationMenuExpanded by remember { mutableStateOf(false) }
+    var showCategorySheet by remember { mutableStateOf(false) }
     val listState = rememberLazyListState()
 
     val requestLocationPermission = rememberLocationPermissionRequester { status ->
@@ -108,7 +128,6 @@ fun ExploreScreen(
         }
     )
 
-    // Scroll list smoothly to match marker selection on map (sync map -> list)
     LaunchedEffect(state.selectedPlaceId, state.places) {
         val selectedId = state.selectedPlaceId ?: return@LaunchedEffect
         val index = state.places.indexOfFirst { it.id == selectedId }
@@ -117,15 +136,23 @@ fun ExploreScreen(
         }
     }
 
+    val chipCategories = remember(state.filter.selectedCategory) {
+        val defaults = PlaceCategory.quickExploreDefaults
+        val selected = state.filter.selectedCategory
+        if (selected != null && !defaults.contains(selected)) {
+            listOf(selected) + defaults
+        } else {
+            defaults
+        }
+    }
+
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-        // Settled-detent map bottom padding avoids GMSMapView UIKitView drag thrashing (ADR-005)
         val settledBottomPaddingDp = when (state.sheetDetent) {
             SheetDetent.COLLAPSED -> (maxHeight.value * 0.16f).toInt()
             SheetDetent.HALF_EXPANDED -> (maxHeight.value * 0.44f).toInt()
             SheetDetent.EXPANDED -> 0
         }
 
-        // 1. Background native Google Map
         if (state.viewMode == ExploreViewMode.MAP) {
             AroundMeMapSurface(
                 cameraCommand = state.cameraCommand,
@@ -141,7 +168,6 @@ fun ExploreScreen(
             )
         }
 
-        // 2. Top Search, Brand, Location Selector, Category Rail & Permission Banner
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -181,7 +207,7 @@ fun ExploreScreen(
                             )
                             Icon(
                                 imageVector = Icons.Rounded.KeyboardArrowDown,
-                                contentDescription = "Change location",
+                                contentDescription = if (state.isArabic) "تغيير الموقع" else "Change location",
                                 modifier = Modifier.size(16.dp)
                             )
                         }
@@ -214,7 +240,6 @@ fun ExploreScreen(
                     }
                 }
 
-                // Map / List Mode Toggle
                 Surface(
                     onClick = {
                         viewModel.setViewMode(
@@ -252,7 +277,6 @@ fun ExploreScreen(
                 }
             }
 
-            // Search bar trigger
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -281,7 +305,6 @@ fun ExploreScreen(
                 }
             }
 
-            // Horizontally scrollable category chips
             LazyRow(
                 contentPadding = PaddingValues(horizontal = AroundMeSpacing.md),
                 horizontalArrangement = Arrangement.spacedBy(AroundMeSpacing.xs)
@@ -294,7 +317,7 @@ fun ExploreScreen(
                         onClick = { viewModel.selectCategory(null) }
                     )
                 }
-                items(PlaceCategory.quickExploreDefaults) { category ->
+                items(chipCategories, key = { it.name }) { category ->
                     AroundMeCategoryChip(
                         label = category.label(state.isArabic),
                         icon = categoryIcon(category),
@@ -302,9 +325,16 @@ fun ExploreScreen(
                         onClick = { viewModel.selectCategory(category) }
                     )
                 }
+                item {
+                    AroundMeCategoryChip(
+                        label = if (state.isArabic) "المزيد" else "More",
+                        icon = Icons.Rounded.MoreHoriz,
+                        selected = false,
+                        onClick = { showCategorySheet = true }
+                    )
+                }
             }
 
-            // Non-blocking foreground location rationale / recovery card
             AnimatedVisibility(visible = state.showLocationBanner) {
                 LocationPermissionBanner(
                     status = state.permissionStatus,
@@ -336,7 +366,6 @@ fun ExploreScreen(
             }
         }
 
-        // 3. Content Area: Full List View OR Map + 3-State Bottom Sheet
         if (state.viewMode == ExploreViewMode.LIST) {
             Surface(
                 modifier = Modifier
@@ -348,22 +377,24 @@ fun ExploreScreen(
                     state = state,
                     listState = listState,
                     onToggleOpenNow = viewModel::toggleOpenNow,
+                    onToggleMinRating = viewModel::setMinRating,
+                    onSelectRadius = viewModel::setMaxDistance,
+                    onSelectSort = viewModel::selectSortOption,
+                    onResetFilters = viewModel::resetFilters,
+                    onRetry = viewModel::retryNearby,
                     onOpenPlaceDetails = onOpenPlaceDetails,
-                    onToggleSave = viewModel::toggleSavePlace
+                    onToggleSave = viewModel::toggleSavePlace,
+                    onResolvePhotoUri = viewModel::resolvePhotoUri
                 )
             }
         } else {
-            // My Location FAB positioned cleanly above the sheet
             SmallFloatingActionButton(
                 onClick = {
-                    if (state.permissionStatus.isGranted) {
-                        viewModel.centerOnDeviceLocation()
-                    } else if (state.permissionStatus == LocationPermissionStatus.PERMANENTLY_DENIED) {
-                        viewModel.openAppSettings()
-                    } else if (state.permissionStatus == LocationPermissionStatus.SERVICES_DISABLED) {
-                        viewModel.openLocationServicesSettings()
-                    } else {
-                        requestLocationPermission()
+                    when {
+                        state.permissionStatus.isGranted -> viewModel.centerOnDeviceLocation()
+                        state.permissionStatus == LocationPermissionStatus.PERMANENTLY_DENIED -> viewModel.openAppSettings()
+                        state.permissionStatus == LocationPermissionStatus.SERVICES_DISABLED -> viewModel.openLocationServicesSettings()
+                        else -> requestLocationPermission()
                     }
                 },
                 modifier = Modifier
@@ -384,7 +415,6 @@ fun ExploreScreen(
                 }
             }
 
-            // 3-State Bottom Sheet (Collapsed, Half Expanded, Expanded)
             Surface(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
@@ -417,15 +447,27 @@ fun ExploreScreen(
                                 },
                                 style = MaterialTheme.typography.titleMedium
                             )
-                            Icon(
-                                imageVector = if (state.sheetDetent == SheetDetent.EXPANDED) {
-                                    Icons.Rounded.ExpandMore
-                                } else {
-                                    Icons.Rounded.ExpandLess
-                                },
-                                contentDescription = "Toggle sheet height",
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                if (!state.isLiveApi) {
+                                    Text(
+                                        text = if (state.isArabic) "بيانات تجريبية" else "Sample places",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                Icon(
+                                    imageVector = if (state.sheetDetent == SheetDetent.EXPANDED) {
+                                        Icons.Rounded.ExpandMore
+                                    } else {
+                                        Icons.Rounded.ExpandLess
+                                    },
+                                    contentDescription = "Toggle sheet height",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                         }
                     }
 
@@ -434,8 +476,14 @@ fun ExploreScreen(
                             state = state,
                             listState = listState,
                             onToggleOpenNow = viewModel::toggleOpenNow,
+                            onToggleMinRating = viewModel::setMinRating,
+                            onSelectRadius = viewModel::setMaxDistance,
+                            onSelectSort = viewModel::selectSortOption,
+                            onResetFilters = viewModel::resetFilters,
+                            onRetry = viewModel::retryNearby,
                             onOpenPlaceDetails = onOpenPlaceDetails,
-                            onToggleSave = viewModel::toggleSavePlace
+                            onToggleSave = viewModel::toggleSavePlace,
+                            onResolvePhotoUri = viewModel::resolvePhotoUri
                         )
                     } else {
                         val previewPlace = state.places.find { it.id == state.selectedPlaceId } ?: state.places.firstOrNull()
@@ -451,6 +499,66 @@ fun ExploreScreen(
                         }
                     }
                 }
+            }
+        }
+    }
+
+    if (showCategorySheet) {
+        val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        ModalBottomSheet(
+            onDismissRequest = { showCategorySheet = false },
+            sheetState = sheetState
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = AroundMeSpacing.md, vertical = AroundMeSpacing.sm),
+                verticalArrangement = Arrangement.spacedBy(AroundMeSpacing.md)
+            ) {
+                SectionHeader(
+                    title = if (state.isArabic) "جميع الفئات" else "All Categories",
+                    trailing = {
+                        if (state.filter.selectedCategory != null) {
+                            TextButton(
+                                onClick = {
+                                    viewModel.selectCategory(null)
+                                    showCategorySheet = false
+                                }
+                            ) {
+                                Text(if (state.isArabic) "عرض الكل" else "Show All")
+                            }
+                        }
+                    }
+                )
+
+                CategoryGroup.entries.forEach { group ->
+                    val groupCategories = PlaceCategory.entries.filter { it.group == group }
+                    Column(verticalArrangement = Arrangement.spacedBy(AroundMeSpacing.xs)) {
+                        Text(
+                            text = if (state.isArabic) group.titleAr else group.titleEn,
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(AroundMeSpacing.xs),
+                            verticalArrangement = Arrangement.spacedBy(AroundMeSpacing.xs)
+                        ) {
+                            groupCategories.forEach { category ->
+                                AroundMeCategoryChip(
+                                    label = category.label(state.isArabic),
+                                    icon = categoryIcon(category),
+                                    selected = state.filter.selectedCategory == category,
+                                    onClick = {
+                                        viewModel.selectCategory(category)
+                                        showCategorySheet = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(24.dp))
             }
         }
     }
@@ -526,46 +634,206 @@ private fun PlacesListContent(
     state: ExploreUiState,
     listState: LazyListState,
     onToggleOpenNow: () -> Unit,
+    onToggleMinRating: (Double) -> Unit,
+    onSelectRadius: (Double) -> Unit,
+    onSelectSort: (SortOption) -> Unit,
+    onResetFilters: () -> Unit,
+    onRetry: () -> Unit,
     onOpenPlaceDetails: (String) -> Unit,
-    onToggleSave: (String) -> Unit
+    onToggleSave: (String) -> Unit,
+    onResolvePhotoUri: suspend (String) -> String?
 ) {
+    var radiusMenuExpanded by remember { mutableStateOf(false) }
+    var sortMenuExpanded by remember { mutableStateOf(false) }
+    val hasActiveFilter = state.filter.selectedCategory != null ||
+        state.filter.openNowOnly ||
+        state.filter.minRating != null
+
     Column(modifier = Modifier.fillMaxSize()) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = AroundMeSpacing.md, vertical = 4.dp),
+        LazyRow(
+            modifier = Modifier.fillMaxWidth(),
+            contentPadding = PaddingValues(horizontal = AroundMeSpacing.md, vertical = 4.dp),
             horizontalArrangement = Arrangement.spacedBy(AroundMeSpacing.xs)
         ) {
-            FilterChip(
-                selected = state.filter.openNowOnly,
-                onClick = onToggleOpenNow,
-                label = { Text(if (state.isArabic) "مفتوح الآن" else "Open now") }
-            )
-        }
-
-        LazyColumn(
-            state = listState,
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(
-                horizontal = AroundMeSpacing.md,
-                vertical = AroundMeSpacing.xs
-            ),
-            verticalArrangement = Arrangement.spacedBy(AroundMeSpacing.sm)
-        ) {
-            items(state.places, key = { it.id }) { place ->
-                val distance = GeoUtils.haversineMeters(state.activeLocation.coordinates, place.location)
-                PlacePreviewCard(
-                    place = place,
-                    distanceMeters = distance,
-                    distanceUnit = state.distanceUnit,
-                    isSaved = state.savedPlaceIds.contains(place.id),
-                    isSelected = place.id == state.selectedPlaceId,
-                    isArabic = state.isArabic,
-                    onClick = { onOpenPlaceDetails(place.id) },
-                    onToggleSave = { onToggleSave(place.id) }
+            item {
+                FilterChip(
+                    selected = state.filter.openNowOnly,
+                    onClick = onToggleOpenNow,
+                    label = { Text(if (state.isArabic) "مفتوح الآن" else "Open now") }
                 )
             }
-            item { Spacer(modifier = Modifier.height(16.dp)) }
+            item {
+                FilterChip(
+                    selected = state.filter.minRating == 4.0,
+                    onClick = { onToggleMinRating(4.0) },
+                    leadingIcon = {
+                        Icon(Icons.Rounded.Star, contentDescription = null, modifier = Modifier.size(16.dp))
+                    },
+                    label = { Text("4.0+") }
+                )
+            }
+            item {
+                FilterChip(
+                    selected = state.filter.minRating == 4.5,
+                    onClick = { onToggleMinRating(4.5) },
+                    leadingIcon = {
+                        Icon(Icons.Rounded.Star, contentDescription = null, modifier = Modifier.size(16.dp))
+                    },
+                    label = { Text("4.5+") }
+                )
+            }
+            item {
+                Box {
+                    FilterChip(
+                        selected = false,
+                        onClick = { radiusMenuExpanded = true },
+                        leadingIcon = {
+                            Icon(Icons.Rounded.Tune, contentDescription = null, modifier = Modifier.size(16.dp))
+                        },
+                        label = {
+                            Text(
+                                GeoUtils.formatDistance(
+                                    state.filter.maxDistanceMeters,
+                                    state.distanceUnit,
+                                    state.isArabic
+                                )
+                            )
+                        }
+                    )
+                    DropdownMenu(
+                        expanded = radiusMenuExpanded,
+                        onDismissRequest = { radiusMenuExpanded = false }
+                    ) {
+                        listOf(1000.0, 3000.0, 5000.0, 10000.0).forEach { meters ->
+                            DropdownMenuItem(
+                                text = {
+                                    Text(GeoUtils.formatDistance(meters, state.distanceUnit, state.isArabic))
+                                },
+                                onClick = {
+                                    onSelectRadius(meters)
+                                    radiusMenuExpanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+            item {
+                Box {
+                    FilterChip(
+                        selected = state.filter.sortOption != SortOption.RECOMMENDED,
+                        onClick = { sortMenuExpanded = true },
+                        leadingIcon = {
+                            Icon(Icons.Rounded.Sort, contentDescription = null, modifier = Modifier.size(16.dp))
+                        },
+                        label = {
+                            Text(
+                                if (state.isArabic) state.filter.sortOption.labelAr
+                                else state.filter.sortOption.labelEn
+                            )
+                        }
+                    )
+                    DropdownMenu(
+                        expanded = sortMenuExpanded,
+                        onDismissRequest = { sortMenuExpanded = false }
+                    ) {
+                        SortOption.entries.forEach { option ->
+                            DropdownMenuItem(
+                                text = { Text(if (state.isArabic) option.labelAr else option.labelEn) },
+                                onClick = {
+                                    onSelectSort(option)
+                                    sortMenuExpanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+            if (hasActiveFilter) {
+                item {
+                    TextButton(onClick = onResetFilters) {
+                        Text(if (state.isArabic) "إعادة ضبط" else "Reset")
+                    }
+                }
+            }
+        }
+
+        if (state.isLoadingPlaces) {
+            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+        }
+
+        state.placesErrorMessage?.let { errorMsg ->
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = AroundMeSpacing.md, vertical = AroundMeSpacing.xs),
+                shape = MaterialTheme.shapes.medium,
+                color = MaterialTheme.colorScheme.errorContainer
+            ) {
+                Row(
+                    modifier = Modifier.padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = errorMsg,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onErrorContainer,
+                        modifier = Modifier.weight(1f)
+                    )
+                    OutlinedButton(onClick = onRetry) {
+                        Icon(Icons.Rounded.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Text(" ${if (state.isArabic) "إعادة" else "Retry"}")
+                    }
+                }
+            }
+        }
+
+        if (!state.isLoadingPlaces && state.places.isEmpty() && state.placesErrorMessage == null) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(AroundMeSpacing.lg),
+                verticalArrangement = Arrangement.spacedBy(AroundMeSpacing.sm),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = if (state.isArabic) "لا توجد أماكن مطابقة في هذه المنطقة." else "No matching places found in this area.",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                if (hasActiveFilter) {
+                    OutlinedButton(onClick = onResetFilters) {
+                        Text(if (state.isArabic) "إعادة ضبط الفلاتر" else "Clear filters")
+                    }
+                }
+            }
+        } else {
+            LazyColumn(
+                state = listState,
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(
+                    horizontal = AroundMeSpacing.md,
+                    vertical = AroundMeSpacing.xs
+                ),
+                verticalArrangement = Arrangement.spacedBy(AroundMeSpacing.sm)
+            ) {
+                items(state.places, key = { it.id }) { place ->
+                    val distance = GeoUtils.haversineMeters(state.activeLocation.coordinates, place.location)
+                    PlacePreviewCard(
+                        place = place,
+                        distanceMeters = distance,
+                        distanceUnit = state.distanceUnit,
+                        isSaved = state.savedPlaceIds.contains(place.id),
+                        isSelected = place.id == state.selectedPlaceId,
+                        isArabic = state.isArabic,
+                        onClick = { onOpenPlaceDetails(place.id) },
+                        onToggleSave = { onToggleSave(place.id) },
+                        onResolvePhotoUri = onResolvePhotoUri
+                    )
+                }
+                item { Spacer(modifier = Modifier.height(16.dp)) }
+            }
         }
     }
 }

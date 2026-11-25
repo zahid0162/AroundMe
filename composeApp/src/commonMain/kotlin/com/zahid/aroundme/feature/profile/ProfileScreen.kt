@@ -3,11 +3,15 @@ package com.zahid.aroundme.feature.profile
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
@@ -23,6 +27,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.zahid.aroundme.core.designsystem.AroundMeSpacing
 import com.zahid.aroundme.core.designsystem.LocalAroundMeColors
 import com.zahid.aroundme.core.designsystem.SectionHeader
+import com.zahid.aroundme.core.geo.GeoUtils
 import com.zahid.aroundme.core.platform.rememberLocationPermissionRequester
 import com.zahid.aroundme.domain.model.AppLanguage
 import com.zahid.aroundme.domain.model.DistanceUnit
@@ -30,6 +35,7 @@ import com.zahid.aroundme.domain.model.LocationPermissionStatus
 import com.zahid.aroundme.domain.model.ThemePreference
 import org.koin.compose.viewmodel.koinViewModel
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun ProfileScreen(
     viewModel: ProfileViewModel = koinViewModel()
@@ -47,6 +53,7 @@ fun ProfileScreen(
         modifier = Modifier
             .fillMaxSize()
             .statusBarsPadding()
+            .verticalScroll(rememberScrollState())
             .padding(AroundMeSpacing.md),
         verticalArrangement = Arrangement.spacedBy(AroundMeSpacing.lg)
     ) {
@@ -125,6 +132,22 @@ fun ProfileScreen(
         }
 
         Column(verticalArrangement = Arrangement.spacedBy(AroundMeSpacing.xs)) {
+            SectionHeader(title = if (isArabic) "نطاق البحث الافتراضي" else "Default Search Radius")
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(AroundMeSpacing.xs),
+                verticalArrangement = Arrangement.spacedBy(AroundMeSpacing.xxs)
+            ) {
+                listOf(1000.0, 3000.0, 5000.0, 10000.0).forEach { radius ->
+                    FilterChip(
+                        selected = prefs.defaultRadiusMeters == radius,
+                        onClick = { viewModel.setDefaultRadius(radius) },
+                        label = { Text(GeoUtils.formatDistance(radius, prefs.distanceUnit, isArabic)) }
+                    )
+                }
+            }
+        }
+
+        Column(verticalArrangement = Arrangement.spacedBy(AroundMeSpacing.xs)) {
             SectionHeader(title = if (isArabic) "إذن الموقع" else "Location Access")
             Surface(
                 modifier = Modifier.fillMaxWidth(),
@@ -183,6 +206,27 @@ fun ProfileScreen(
                         )
                     }
                 }
+            }
+        }
+
+        Column(verticalArrangement = Arrangement.spacedBy(AroundMeSpacing.xs)) {
+            SectionHeader(title = if (isArabic) "البيانات والخصوصية" else "Maps & Privacy")
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = MaterialTheme.shapes.medium,
+                color = MaterialTheme.colorScheme.surface,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+            ) {
+                Text(
+                    text = if (isArabic) {
+                        "تُعرض الخرائط وبيانات الأماكن عبر Google Maps Platform وPlaces API (New). تُحفظ قوائمك وملاحظاتك محلياً على جهازك فقط."
+                    } else {
+                        "Maps and place data are provided via Google Maps Platform & Places API (New). Saved lists and personal notes remain stored locally on your device."
+                    },
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(AroundMeSpacing.md)
+                )
             }
         }
     }

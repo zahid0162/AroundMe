@@ -497,47 +497,48 @@ export default function App() {
                 )}
 
                 <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setFeedbackMessage(
-                        isArabic
-                          ? 'سيتم فتح تطبيق الخرائط للاتجاهات في المرحلة 4'
-                          : 'Native navigation handoff wired in Phase 4'
-                      )
-                    }
+                  <a
+                    href={`https://www.google.com/maps/dir/?api=1&destination=${detailPlace.location.lat},${detailPlace.location.lng}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
                     className="min-h-[44px] px-4 rounded-xl bg-[#0d6e6e] dark:bg-[#4fd1c5] text-white dark:text-[#063d3d] text-sm font-semibold inline-flex items-center gap-2"
                   >
                     <Navigation className="w-4 h-4" />
                     <span>{isArabic ? 'الاتجاهات' : 'Directions'}</span>
-                  </button>
+                  </a>
                   {detailPlace.phoneNumber && (
-                    <button
-                      type="button"
-                      onClick={() => setFeedbackMessage(detailPlace.phoneNumber ?? '')}
+                    <a
+                      href={`tel:${detailPlace.phoneNumber.replace(/[^+\d*#]/g, '')}`}
                       className="min-h-[44px] px-4 rounded-xl border border-slate-200 dark:border-slate-700 text-sm font-medium inline-flex items-center gap-2"
                     >
                       <Phone className="w-4 h-4" />
                       <span>{isArabic ? 'اتصال' : 'Call'}</span>
-                    </button>
+                    </a>
                   )}
-                  {detailPlace.websiteUrl && (
-                    <button
-                      type="button"
-                      onClick={() => setFeedbackMessage(detailPlace.websiteUrl ?? '')}
+                  {detailPlace.websiteUrl && /^https?:\/\//i.test(detailPlace.websiteUrl) && (
+                    <a
+                      href={detailPlace.websiteUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
                       className="min-h-[44px] px-4 rounded-xl border border-slate-200 dark:border-slate-700 text-sm font-medium inline-flex items-center gap-2"
                     >
                       <Globe className="w-4 h-4" />
                       <span>{isArabic ? 'الموقع' : 'Website'}</span>
-                    </button>
+                    </a>
                   )}
                   <button
                     type="button"
-                    onClick={() =>
+                    onClick={() => {
+                      const placeTitle = isArabic ? detailPlace.nameAr : detailPlace.nameEn;
+                      const placeAddr = isArabic ? detailPlace.addressAr : detailPlace.addressEn;
+                      const text = `${placeTitle} — ${placeAddr}`;
+                      if (navigator.clipboard?.writeText) {
+                        void navigator.clipboard.writeText(text);
+                      }
                       setFeedbackMessage(
-                        isArabic ? 'تم نسخ رابط المشاركة' : 'Place share link ready'
-                      )
-                    }
+                        isArabic ? 'تم نسخ تفاصيل المكان للمشاركة' : 'Place details copied to share'
+                      );
+                    }}
                     className="min-h-[44px] px-4 rounded-xl border border-slate-200 dark:border-slate-700 text-sm font-medium inline-flex items-center gap-2"
                   >
                     <Share2 className="w-4 h-4" />
