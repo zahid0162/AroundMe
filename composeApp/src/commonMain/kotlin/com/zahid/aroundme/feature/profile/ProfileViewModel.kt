@@ -4,17 +4,21 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.zahid.aroundme.domain.model.AppLanguage
 import com.zahid.aroundme.domain.model.DistanceUnit
+import com.zahid.aroundme.domain.model.LocationPermissionStatus
 import com.zahid.aroundme.domain.model.ThemePreference
 import com.zahid.aroundme.domain.model.UserPreferences
+import com.zahid.aroundme.domain.repository.LocationRepository
 import com.zahid.aroundme.domain.repository.UserPreferencesRepository
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
 class ProfileViewModel(
-    private val userPreferencesRepository: UserPreferencesRepository
+    private val userPreferencesRepository: UserPreferencesRepository,
+    private val locationRepository: LocationRepository
 ) : ViewModel() {
 
     val preferences: StateFlow<UserPreferences> = userPreferencesRepository.preferences
+    val permissionStatus: StateFlow<LocationPermissionStatus> = locationRepository.permissionStatus
 
     fun setTheme(theme: ThemePreference) {
         viewModelScope.launch {
@@ -32,5 +36,17 @@ class ProfileViewModel(
         viewModelScope.launch {
             userPreferencesRepository.updatePreferences { it.copy(distanceUnit = unit) }
         }
+    }
+
+    fun refreshLocationStatus() {
+        locationRepository.refreshPermissionState()
+    }
+
+    fun openAppSettings() {
+        locationRepository.openAppSettings()
+    }
+
+    fun openLocationServicesSettings() {
+        locationRepository.openLocationServicesSettings()
     }
 }

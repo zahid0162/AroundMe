@@ -23,10 +23,10 @@ val dataModule = module {
 }
 
 val viewModelModule = module {
-    viewModel { ExploreViewModel(get(), get(), get()) }
+    viewModel { ExploreViewModel(get(), get(), get(), get()) }
     viewModel { SearchViewModel(get(), get(), get()) }
     viewModel { SavedViewModel(get(), get(), get()) }
-    viewModel { ProfileViewModel(get()) }
+    viewModel { ProfileViewModel(get(), get()) }
     viewModel { params -> PlaceDetailsViewModel(placeId = params.get(), get(), get(), get()) }
 }
 

@@ -22,7 +22,11 @@
 - **Decision:** Update map `contentPadding` only when the 3-state Explore sheet settles into `Collapsed` or `HalfExpanded`, never on every drag frame.
 - **Rationale:** Prevents `GMSMapView` (`UIKitView`) layout thrashing during touch gestures on iOS.
 
+### ADR-006: Swift `IosMapViewProvider` Bridge Over Gradle CocoaPods Cinterop
+- **Decision:** Bridge `GMSMapView` on iOS via a Kotlin-defined `IosMapViewProvider` / `IosMapHandle` interface registered at startup by `AroundMeGoogleMapProvider.swift` in `iosApp`.
+- **Rationale:** Allows `iosApp` to consume Google Maps SDK for iOS cleanly via Swift Package Manager (`https://github.com/googlemaps/ios-maps-sdk`) without fragile CocoaPods Gradle plugin cinterop build failures, while keeping `CoreLocation` (`CLLocationManager`) directly in `iosMain` Kotlin.
+
 ## Unresolved Issues & Pre-Launch Gates
 1. **Local JVM / Android SDK / Xcode Toolchain Required for Native Compilation:** The current AI Studio web workspace runs Node/Vite without JDK, Gradle, Android SDK, or macOS/Xcode. Native Gradle/Xcode builds must be executed in a local Android Studio / Xcode environment (or CI macOS runner).
 2. **Pre-Launch Places Proxy Gate (Section 15 vs. Section 4):** Phase 3–4 development will use platform-restricted Places API keys (`X-Android-Package`/`X-Android-Cert`, `X-Ios-Bundle-Identifier`) behind `PlacesRemoteDataSource`. Before public store release, introduce a thin BFF proxy (Cloud Run / Django DRF) to protect API keys and enforce server-side rate limiting.
-3. **Google Maps Platform API Key Provisioning:** Needs separate restricted Android Maps SDK key, iOS Maps SDK key, and Places API (New) key prior to Phase 2/3 testing.
+3. **Google Maps Platform API Key Configuration (Local):** Developers must copy `local.properties.example` to `local.properties` (`MAPS_ANDROID_API_KEY`) and `iosApp/Config/Secrets.xcconfig.example` to `Secrets.xcconfig` (`MAPS_IOS_API_KEY`) with restricted Android/iOS Maps SDK keys, and add `https://github.com/googlemaps/ios-maps-sdk` via Xcode Swift Package Manager.

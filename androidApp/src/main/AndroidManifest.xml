@@ -12,7 +12,10 @@
         android:supportsRtl="true"
         android:theme="@android:style/Theme.Material.Light.NoActionBar">
 
-        <!-- Google Maps API key will be injected via manifestPlaceholders in Phase 2 -->
+        <meta-data
+            android:name="com.google.android.geo.API_KEY"
+            android:value="${MAPS_ANDROID_API_KEY}" />
+
         <activity
             android:name=".MainActivity"
             android:exported="true"

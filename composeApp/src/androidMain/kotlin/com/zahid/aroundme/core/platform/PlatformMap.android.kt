@@ -1,17 +1,11 @@
 package com.zahid.aroundme.core.platform
 
-import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Place
@@ -20,120 +14,193 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.zahid.aroundme.core.designsystem.LocalAroundMeColors
+import com.google.android.gms.maps.CameraUpdateFactory
+import com.google.android.gms.maps.model.CameraPosition
+import com.google.android.gms.maps.model.LatLng
+import com.google.maps.android.compose.CameraMoveStartedReason
+import com.google.maps.android.compose.ComposeMapColorScheme
+import com.google.maps.android.compose.GoogleMap
+import com.google.maps.android.compose.MapProperties
+import com.google.maps.android.compose.MapUiSettings
+import com.google.maps.android.compose.MarkerComposable
+import com.google.maps.android.compose.rememberCameraPositionState
+import com.google.maps.android.compose.rememberUpdatedMarkerState
+import com.zahid.aroundme.core.geo.GeoUtils
+import com.zahid.aroundme.domain.model.CameraCommand
 import com.zahid.aroundme.domain.model.GeoPoint
+import com.zahid.aroundme.domain.model.MapCameraRegion
 import com.zahid.aroundme.domain.model.Place
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filter
 
 @Composable
 actual fun AroundMeMapSurface(
-    center: GeoPoint,
+    cameraCommand: CameraCommand?,
     places: List<Place>,
     selectedPlaceId: String?,
+    isDarkTheme: Boolean,
+    isMyLocationEnabled: Boolean,
+    bottomContentPaddingDp: Int,
     onSelectPlace: (String) -> Unit,
-    onMapCameraMoved: (GeoPoint) -> Unit,
+    onCameraIdle: (MapCameraRegion) -> Unit,
+    onMapTap: () -> Unit,
     modifier: Modifier
 ) {
-    Phase1CartographicPreview(
-        center = center,
-        places = places,
-        selectedPlaceId = selectedPlaceId,
-        onSelectPlace = onSelectPlace,
-        modifier = modifier
-    )
-}
+    val initialTarget = cameraCommand?.target ?: GeoPoint(24.6949, 46.6852)
+    val cameraPositionState = rememberCameraPositionState {
+        position = CameraPosition.fromLatLngZoom(
+            LatLng(initialTarget.latitude, initialTarget.longitude),
+            cameraCommand?.zoom ?: 14.2f
+        )
+    }
 
-@Composable
-internal fun Phase1CartographicPreview(
-    center: GeoPoint,
-    places: List<Place>,
-    selectedPlaceId: String?,
-    onSelectPlace: (String) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val extended = LocalAroundMeColors.current
-    val gridColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.45f)
-    val roadColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f)
+    var lastHandledCommandId by remember { mutableStateOf(-1L) }
+    var lastMoveByGesture by remember { mutableStateOf(false) }
 
-    BoxWithConstraints(
-        modifier = modifier
-            .fillMaxSize()
-            .background(extended.mapBackdrop)
-    ) {
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            val step = 64.dp.toPx()
-            var x = 0f
-            while (x < size.width) {
-                drawLine(gridColor, Offset(x, 0f), Offset(x, size.height), strokeWidth = 1f)
-                x += step
-            }
-            var y = 0f
-            while (y < size.height) {
-                drawLine(gridColor, Offset(0f, y), Offset(size.width, y), strokeWidth = 1f)
-                y += step
-            }
-            drawLine(roadColor, Offset(0f, size.height * 0.36f), Offset(size.width, size.height * 0.28f), strokeWidth = 14f)
-            drawLine(roadColor, Offset(size.width * 0.28f, 0f), Offset(size.width * 0.46f, size.height), strokeWidth = 10f)
-        }
-
-        // User current location dot
-        Box(
-            modifier = Modifier
-                .align(Alignment.Center)
-                .size(22.dp)
-                .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.2f))
-                .padding(5.dp)
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primary)
-                    .border(2.dp, Color.White, CircleShape)
+    LaunchedEffect(cameraCommand?.id) {
+        if (cameraCommand != null && cameraCommand.id != lastHandledCommandId) {
+            lastHandledCommandId = cameraCommand.id
+            lastMoveByGesture = false
+            val update = CameraUpdateFactory.newLatLngZoom(
+                LatLng(cameraCommand.target.latitude, cameraCommand.target.longitude),
+                cameraCommand.zoom
             )
+            if (cameraCommand.animate) {
+                cameraPositionState.animate(update, durationMs = 450)
+            } else {
+                cameraPositionState.move(update)
+            }
         }
+    }
 
-        // Sample markers plotted relative to center
-        places.take(8).forEachIndexed { index, place ->
-            val dx = ((place.location.longitude - center.longitude) * 2800.0).coerceIn(-140.0, 140.0)
-            val dy = ((center.latitude - place.location.latitude) * 2800.0).coerceIn(-140.0, 140.0)
+    LaunchedEffect(cameraPositionState) {
+        snapshotFlow { cameraPositionState.isMoving to cameraPositionState.cameraMoveStartedReason }
+            .distinctUntilChanged()
+            .collect { (isMoving, reason) ->
+                if (isMoving && reason == CameraMoveStartedReason.GESTURE) {
+                    lastMoveByGesture = true
+                }
+            }
+    }
+
+    LaunchedEffect(cameraPositionState) {
+        snapshotFlow { cameraPositionState.isMoving }
+            .filter { !it }
+            .collect {
+                if (lastMoveByGesture) {
+                    lastMoveByGesture = false
+                    val pos = cameraPositionState.position
+                    val center = GeoPoint(pos.target.latitude, pos.target.longitude)
+                    val bounds = cameraPositionState.projection?.visibleRegion?.latLngBounds
+                    val radiusMeters = if (bounds != null) {
+                        GeoUtils.haversineMeters(
+                            center,
+                            GeoPoint(bounds.northeast.latitude, bounds.northeast.longitude)
+                        ).coerceIn(300.0, 50_000.0)
+                    } else {
+                        2500.0
+                    }
+                    onCameraIdle(
+                        MapCameraRegion(
+                            center = center,
+                            zoom = pos.zoom,
+                            visibleRadiusMeters = radiusMeters
+                        )
+                    )
+                }
+            }
+    }
+
+    val mapProperties = remember(isMyLocationEnabled) {
+        MapProperties(
+            isMyLocationEnabled = isMyLocationEnabled,
+            isBuildingEnabled = true
+        )
+    }
+
+    val mapUiSettings = remember {
+        MapUiSettings(
+            compassEnabled = true,
+            myLocationButtonEnabled = false,
+            zoomControlsEnabled = false,
+            mapToolbarEnabled = false,
+            rotationGesturesEnabled = true,
+            tiltGesturesEnabled = true
+        )
+    }
+
+    GoogleMap(
+        modifier = modifier,
+        cameraPositionState = cameraPositionState,
+        properties = mapProperties,
+        uiSettings = mapUiSettings,
+        mapColorScheme = if (isDarkTheme) ComposeMapColorScheme.DARK else ComposeMapColorScheme.LIGHT,
+        contentPadding = PaddingValues(bottom = bottomContentPaddingDp.dp),
+        onMapClick = { onMapTap() }
+    ) {
+        places.forEach { place ->
             val isSelected = place.id == selectedPlaceId
-
-            Column(
-                modifier = Modifier
-                    .align(Alignment.Center)
-                    .offset(x = dx.dp, y = dy.dp)
-                    .clickable { onSelectPlace(place.id) },
-                horizontalAlignment = Alignment.CenterHorizontally
+            val markerState = rememberUpdatedMarkerState(
+                position = LatLng(place.location.latitude, place.location.longitude)
+            )
+            MarkerComposable(
+                keys = arrayOf(place.id, isSelected, isDarkTheme),
+                state = markerState,
+                zIndex = if (isSelected) 10f else 1f,
+                onClick = {
+                    onSelectPlace(place.id)
+                    true
+                }
             ) {
                 Surface(
                     shape = RoundedCornerShape(14.dp),
-                    color = if (isSelected) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.surface,
-                    contentColor = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurface,
-                    shadowElevation = if (isSelected) 6.dp else 2.dp
+                    color = if (isSelected) {
+                        MaterialTheme.colorScheme.secondary
+                    } else {
+                        MaterialTheme.colorScheme.surface
+                    },
+                    contentColor = if (isSelected) {
+                        Color.White
+                    } else {
+                        MaterialTheme.colorScheme.onSurface
+                    },
+                    border = BorderStroke(
+                        width = 1.dp,
+                        color = if (isSelected) Color.White else MaterialTheme.colorScheme.outline
+                    ),
+                    shadowElevation = if (isSelected) 8.dp else 3.dp
                 ) {
-                    Icon(
-                        imageVector = Icons.Rounded.Place,
-                        contentDescription = place.name,
-                        modifier = Modifier.padding(6.dp).size(if (isSelected) 22.dp else 18.dp)
-                    )
-                }
-                if (isSelected || index < 2) {
-                    Text(
-                        text = place.name,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier
-                            .padding(top = 2.dp)
-                            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.9f), RoundedCornerShape(6.dp))
-                            .padding(horizontal = 6.dp, vertical = 2.dp)
-                    )
+                    Row(
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Place,
+                            contentDescription = null,
+                            modifier = Modifier.size(if (isSelected) 18.dp else 15.dp),
+                            tint = if (isSelected) Color.White else MaterialTheme.colorScheme.primary
+                        )
+                        if (isSelected) {
+                            Text(
+                                text = place.name,
+                                style = MaterialTheme.typography.labelSmall,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
                 }
             }
         }

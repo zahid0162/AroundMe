@@ -20,6 +20,7 @@ room3 = "3.0.3"
 sqlite = "2.5.1"
 coil3 = "3.6.3"
 maps-compose = "9.0.1"
+play-services-location = "21.4.0"
 turbine = "1.2.0"
 
 [libraries]
@@ -54,6 +55,7 @@ coil-compose = { module = "io.coil-kt.coil3:coil-compose", version.ref = "coil3"
 coil-network-ktor3 = { module = "io.coil-kt.coil3:coil-network-ktor3", version.ref = "coil3" }
 
 maps-compose = { module = "com.google.maps.android:maps-compose", version.ref = "maps-compose" }
+play-services-location = { module = "com.google.android.gms:play-services-location", version.ref = "play-services-location" }
 turbine = { module = "app.cash.turbine:turbine", version.ref = "turbine" }
 
 [plugins]

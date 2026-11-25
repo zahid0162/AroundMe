@@ -51,6 +51,9 @@ kotlin {
 
         androidMain.dependencies {
             implementation(libs.kotlinx.coroutines.android)
+            implementation(libs.androidx.activity.compose)
+            implementation(libs.maps.compose)
+            implementation(libs.play.services.location)
         }
 
         commonTest.dependencies {

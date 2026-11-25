@@ -1,0 +1,3 @@
+# Copy to local.properties (git-ignored) and supply restricted Google Maps API keys.
+# Android key restrictions: Package name com.zahid.aroundme + SHA-1 fingerprint + Maps SDK for Android.
+MAPS_ANDROID_API_KEY=YOUR_RESTRICTED_ANDROID_MAPS_SDK_KEY

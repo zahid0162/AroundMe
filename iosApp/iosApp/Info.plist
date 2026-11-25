@@ -14,6 +14,8 @@
     <string>0.1.0</string>
     <key>CFBundleVersion</key>
     <string>1</string>
+    <key>GMSApiKey</key>
+    <string>$(MAPS_IOS_API_KEY)</string>
     <key>NSLocationWhenInUseUsageDescription</key>
     <string>AroundMe uses your location to show nearby places, calculate distances, and center the map around you.</string>
     <key>UILaunchScreen</key>
