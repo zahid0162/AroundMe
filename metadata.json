@@ -1,0 +1,8 @@
+{
+  "name": "AroundMe",
+  "description": "Discover What's Around You. Cross-platform location discovery platform built with Kotlin Multiplatform and Compose Multiplatform.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

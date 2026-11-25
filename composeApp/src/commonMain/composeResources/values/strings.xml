@@ -1,0 +1,45 @@
+<resources>
+    <string name="app_name">AroundMe</string>
+    <string name="tagline">Discover What\'s Around You</string>
+
+    <string name="nav_explore">Explore</string>
+    <string name="nav_search">Search</string>
+    <string name="nav_saved">Saved</string>
+    <string name="nav_profile">Profile</string>
+
+    <string name="search_placeholder">Search places, cafes, pharmacies…</string>
+    <string name="search_this_area">Search this area</string>
+    <string name="view_mode_map">Map</string>
+    <string name="view_mode_list">List</string>
+
+    <string name="open_now">Open now</string>
+    <string name="closed_now">Closed</string>
+    <string name="places_nearby_count">%1$d places nearby</string>
+    <string name="all_categories">All</string>
+
+    <string name="filter_open_only">Open now</string>
+    <string name="filter_top_rated">4.5+ rated</string>
+    <string name="sort_recommended">Recommended</string>
+    <string name="sort_nearest">Nearest</string>
+    <string name="sort_highest_rated">Highest rated</string>
+    <string name="sort_most_reviewed">Most reviewed</string>
+
+    <string name="action_directions">Directions</string>
+    <string name="action_call">Call</string>
+    <string name="action_website">Website</string>
+    <string name="action_share">Share</string>
+    <string name="action_save">Save</string>
+    <string name="action_saved">Saved</string>
+
+    <string name="saved_collections_title">Your Collections</string>
+    <string name="saved_empty_title">No saved places yet</string>
+    <string name="saved_empty_subtitle">Save places while exploring to organize outings and trips.</string>
+
+    <string name="profile_appearance">Appearance</string>
+    <string name="profile_theme_light">Light</string>
+    <string name="profile_theme_dark">Dark</string>
+    <string name="profile_theme_system">System</string>
+    <string name="profile_language">Language</string>
+    <string name="profile_distance_unit">Distance Units</string>
+    <string name="profile_location_access">Location Access</string>
+</resources>

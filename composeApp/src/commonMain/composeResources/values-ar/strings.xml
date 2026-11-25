@@ -1,0 +1,45 @@
+<resources>
+    <string name="app_name">AroundMe</string>
+    <string name="tagline">اكتشف ما حولك</string>
+
+    <string name="nav_explore">استكشف</string>
+    <string name="nav_search">بحث</string>
+    <string name="nav_saved">المحفوظات</string>
+    <string name="nav_profile">الملف</string>
+
+    <string name="search_placeholder">ابحث عن مطاعم، مقاهي، صيدليات…</string>
+    <string name="search_this_area">ابحث في هذه المنطقة</string>
+    <string name="view_mode_map">خريطة</string>
+    <string name="view_mode_list">قائمة</string>
+
+    <string name="open_now">مفتوح الآن</string>
+    <string name="closed_now">مغلق</string>
+    <string name="places_nearby_count">%1$d مكان قريب</string>
+    <string name="all_categories">الكل</string>
+
+    <string name="filter_open_only">مفتوح الآن</string>
+    <string name="filter_top_rated">تقييم 4.5+</string>
+    <string name="sort_recommended">الموصى به</string>
+    <string name="sort_nearest">الأقرب</string>
+    <string name="sort_highest_rated">الأعلى تقييماً</string>
+    <string name="sort_most_reviewed">الأكثر مراجعة</string>
+
+    <string name="action_directions">الاتجاهات</string>
+    <string name="action_call">اتصال</string>
+    <string name="action_website">الموقع</string>
+    <string name="action_share">مشاركة</string>
+    <string name="action_save">حفظ</string>
+    <string name="action_saved">محفوظ</string>
+
+    <string name="saved_collections_title">مجموعاتك</string>
+    <string name="saved_empty_title">لا توجد أماكن محفوظة</string>
+    <string name="saved_empty_subtitle">احفظ الأماكن أثناء الاستكشاف لتنظيم رحلاتك.</string>
+
+    <string name="profile_appearance">المظهر</string>
+    <string name="profile_theme_light">فاتح</string>
+    <string name="profile_theme_dark">داكن</string>
+    <string name="profile_theme_system">النظام</string>
+    <string name="profile_language">اللغة</string>
+    <string name="profile_distance_unit">وحدة المسافة</string>
+    <string name="profile_location_access">إذن الموقع</string>
+</resources>
